@@ -1,5 +1,6 @@
 from dataclasses import dataclass, asdict
-from typing import Iterator, Dict, Optional, List
+from enum import Enum
+from typing import Iterator, Optional, List
 
 import pytest
 from ruamel.yaml import YAML
@@ -10,40 +11,63 @@ from ruamel.yaml.scanner import ScannerError
 
 @dataclass
 class Indents:
-    """keeps identation levels of pytaf keywords"""
+    """keeps indentation levels of pytaf keywords"""
 
     issue: int
     steps: int
     use: int
 
 
+class Type(Enum):
+    """represents a token type"""
+
+    KEYWORD = 0
+    IDENTIFIER = 1
+
+
 @dataclass
 class Token:
     """represents a token"""
 
-    type: str
+    type: Type
     value: Optional[str]
     line: int
     col: int
 
 
-def tokenizer(doc, keywords: List[str]) -> Iterator[Token]:
-    """tokenizes dict"""
+def tokenizer(doc: CommentedMap, keywords: List[str]) -> Iterator[Token]:
+    """tokenizes a dictionary"""
     for key, value in doc.items():
         line, col = doc.lc.data[key][0], doc.lc.data[key][1]
-        yield Token(key, None, line, col) if key in keywords else Token("<ident>", key, line, col)
+        yield Token(Type.KEYWORD, key, line, col) if key in keywords else Token(Type.IDENTIFIER, key, line, col)
         if isinstance(value, CommentedMap):
             yield from tokenizer(doc=value, keywords=keywords)
         else:
-            yield Token("<ident>", value, line, col)
+            yield Token(Type.IDENTIFIER, value, line, col)
 
 
-def tokenize(doc, keywords: List[str]) -> List[Token]:
+def tokenize(doc: CommentedMap, keywords: List[str]) -> List[Token]:
     """collects tokens and returns them as list"""
     tokens = []
     for token in tokenizer(doc=doc, keywords=keywords):
         tokens.append(token)
     return tokens
+
+
+def check_indents(doc: CommentedMap, indents: Indents) -> List[str]:
+    """checks indentation level"""
+    errors = []
+    for key, value in doc.items():
+        if isinstance(value, CommentedMap):
+            errors_ = check_indents(doc=value, indents=indents)
+            errors.extend(errors_)
+        else:
+            if key in asdict(indents):
+                indent = getattr(indents, key)
+                line, col = doc.lc.data[key][0], doc.lc.data[key][1]
+                if indent != col:
+                    errors.append(f"line {line} expected {indent} actual {col}")
+    return errors
 
 
 yaml_script = """\
@@ -53,11 +77,14 @@ steps:              # 2, 0
                     # 3
   1. test step:     # 4, 2
     use: none       # 5, 4
+    
+  2. test step:     # 7, 2
+    use: none       # 8, 4
 """
 
 
 def test_tokenizer():
-    idents = Indents(
+    indents = Indents(
         issue=0,
         steps=0,
         use=2,
@@ -65,14 +92,17 @@ def test_tokenizer():
     try:
         parser = YAML()
         doc = parser.load(yaml_script)
-        tokens = tokenize(doc=doc, keywords=list(asdict(idents).keys()))
+        tokens = tokenize(doc=doc, keywords=list(asdict(indents).keys()))
         assert tokens == [
-            Token(type="issue", value=None, line=0, col=0),
-            Token(type="<ident>", value="test case", line=0, col=0),
-            Token(type="steps", value=None, line=2, col=0),
-            Token(type="<ident>", value="1. test step", line=4, col=2),
-            Token(type="use", value=None, line=5, col=4),
-            Token(type="<ident>", value="none", line=5, col=4),
+            Token(type=Type.KEYWORD, value="issue", line=0, col=0),
+            Token(type=Type.IDENTIFIER, value="test case", line=0, col=0),
+            Token(type=Type.KEYWORD, value="steps", line=2, col=0),
+            Token(type=Type.IDENTIFIER, value="1. test step", line=4, col=2),
+            Token(type=Type.KEYWORD, value="use", line=5, col=4),
+            Token(type=Type.IDENTIFIER, value="none", line=5, col=4),
+            Token(type=Type.IDENTIFIER, value="2. test step", line=7, col=2),
+            Token(type=Type.KEYWORD, value="use", line=8, col=4),
+            Token(type=Type.IDENTIFIER, value="none", line=8, col=4),
         ]
     except ScannerError as error:
         print(f"{error.args[3]}: {error.args[2]}")
@@ -83,7 +113,7 @@ def test_tokenizer():
 
 
 def test_idents():
-    idents = asdict(
+    indents = asdict(
         Indents(
             issue=0,
             steps=0,
@@ -93,15 +123,22 @@ def test_idents():
     try:
         parser = YAML()
         doc = parser.load(yaml_script)
-        tokens = tokenize(doc=doc, keywords=list(idents.keys()))
+        tokens = tokenize(doc=doc, keywords=list(indents.keys()))
         for token in tokens:
-            if token.type in idents:
-                assert token.col == idents[token.type]
+            if token.type in indents:
+                assert token.col == indents[token.type]
     except ScannerError as error:
         print(f"{error.args[3]}: {error.args[2]}")
         raise
     except ParserError as error:
         print(f"{error.args[3]}: {error.args[2]}")
+
+
+def test_indents():
+    parser = YAML()
+    doc = parser.load(yaml_script)
+    errors = check_indents(doc=doc, indents=Indents(issue=0, steps=0, use=3))
+    pass
 
 
 def test_asdict_raises_type_error():
