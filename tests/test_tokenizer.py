@@ -16,6 +16,7 @@ class Indents:
     issue: int
     steps: int
     use: int
+    step_id: int = 0
 
 
 class Type(Enum):
@@ -64,9 +65,9 @@ def check_indents(doc: CommentedMap, indents: Indents) -> List[str]:
         else:
             if key in asdict(indents):
                 indent = getattr(indents, key)
-                line, col = doc.lc.data[key][0], doc.lc.data[key][1]
-                if indent != col:
-                    errors.append(f"line {line} expected {indent} actual {col}")
+                line, column = doc.lc.data[key][0], doc.lc.data[key][1]
+                if indent != column:
+                    errors.append(f"line {line} expected {indent} actual {column}")
     return errors
 
 
@@ -137,8 +138,9 @@ def test_idents():
 def test_indents():
     parser = YAML()
     doc = parser.load(yaml_script)
-    errors = check_indents(doc=doc, indents=Indents(issue=0, steps=0, use=3))
-    pass
+    indent_defs = Indents(issue=0, steps=0, use=4)
+    errors = check_indents(doc=doc, indents=indent_defs)
+    assert errors == []
 
 
 def test_asdict_raises_type_error():

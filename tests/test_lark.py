@@ -3,27 +3,23 @@ from lark import Lark
 from lark.exceptions import UnexpectedEOF
 
 script_grammar = r"""
-start: "issue" ":" TEST_CASE_ID markers? before? after? steps
+start: "issue" ":" WORD+ markers? before? after? steps
 
 markers: "markers" ":" WORD+
-before: "before" ":" input? output?
+before: "before" ":" WORD+ ":" input? output?
 after: "after" ":" input? output?
 input: "input" ":"
 output: "output" ":"
 
 steps: "steps" ":" step+
-step: TEST_STEP_ID ":" markers? skip? flaky? parameterize? before? after? use? input? output?
+step: (NUMBER WORD+) ":" markers? skip? flaky? parameterize? before? after? use? input? output?
 
 skip: "skip" ":" WORD*
 flaky: "flaky" ":" NUMBER
-parameterize: ("parameterize" | "foreach") ":" PARAMETERIZE_OBJECT
+parameterize: "parameterize" ":" WORD+
 use: "use" ":" WORD+
 
 COMMENT: "#" /[^\n]/*
-
-TEST_CASE_ID: /.+?(?=markers|skip|flaky|parameterize|input|output|use|input|output)/s
-TEST_STEP_ID: /.+?(?=:)/s
-PARAMETERIZE_OBJECT: /.+?(?=before|after|use|input|output)/s
 
 %import common.WS
 %import common.WORD
@@ -34,21 +30,22 @@ PARAMETERIZE_OBJECT: /.+?(?=before|after|use|input|output)/s
 """
 
 yaml_script = """
-issue: "test case id"
+issue: test case id
 markers: a
 steps:
 
     1 test step id:
       markers: b c
-      skip: reason to skip ### comment ###
+      skip: reason to skip # comment
       flaky: 3
       parameterize:
         param:
           env: x.y.z
         param2: 1
       before:
-        input:
-        output:
+        "a. before step"
+          input:
+          output:
       after:
         input:
       use: function call
@@ -63,7 +60,7 @@ steps:
 
 def test_grammar():
     try:
-        parser = Lark(grammar=script_grammar)
+        parser = Lark(grammar=script_grammar, parser="lalr")
         ast = parser.parse(yaml_script)
         print(ast.pretty())
     except Exception as error:

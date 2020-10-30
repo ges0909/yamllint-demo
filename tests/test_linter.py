@@ -4,7 +4,7 @@ from yamllint.config import YamlLintConfig
 yaml_script = """\
 issue: "test case"  # 0, 0
                     # 1
-steps:              # 2, 0
+    steps:              # 2, 0
                     # 3
   1. test step:     # 4, 2
     use: none       # 5, 4
@@ -26,6 +26,6 @@ def test_linter_relaxed_config():
 
 
 def test_custom_config():
-    conf = YamlLintConfig(file="custom_config.yaml")
+    conf = YamlLintConfig(file="yamllint_custom_config.yaml")
     for error in linter.run(input=yaml_script, conf=conf):
         print(error)
