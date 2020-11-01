@@ -1,0 +1,31 @@
+issue: test case id
+
+markers: ABC XYZ
+
+before:
+
+  "before script #1":
+    use: func
+    input:
+      i_param: value
+#    output:
+#      o_param: value
+  'before script #2':
+    use: func
+    input:
+      i_param: value
+#    output:
+#      o_param: value
+
+after:
+
+  wait:
+    input:
+      duration: 10
+
+steps:
+
+  "step #1":
+    use: abc
+#    output:
+#      o: x
