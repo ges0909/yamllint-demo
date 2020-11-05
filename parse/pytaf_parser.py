@@ -11,32 +11,32 @@ class PytafLexer(Lexer):
 
     indents = {
         "issue": (0,),
-        "markers": (0, 2),
-        "before": (0, 2),
-        "after": (0, 2),
+        "markers": (0, 4),
+        "before": (0, 4),
+        "after": (0, 4),
         "steps": (0,),
-        "skip": (2,),
-        "skip_env": (2,),
-        "flaky": (2,),
-        "use": (2,),
-        "input": (2,),
-        "output": (2,),
+        "skip": (4,),
+        "skip_env": (4,),
+        "flaky": (4,),
+        "use": (4,),
+        "input": (4,),
+        "output": (4,),
     }
 
     def __init__(self, lexer_conf):
         pass
 
-    def lex(self, doc: Union[CommentedMap, str], line=0, column=0, context=None, indent=0) -> Iterator[Token]:
+    def lex(self, doc: Union[CommentedMap, str], indent=0) -> Iterator[Token]:
         for key, value in doc.items():
-            line, column = doc.lc.data[key][0], doc.lc.data[key][1]
-            token_type = key.upper() if key in self.indents.keys() else "VALUE"
+            line, column = doc.lc.data[key][0] + 1, doc.lc.data[key][1] + 1
+            token_type = key.upper() if key in self.indents.keys() and indent in self.indents[key] else "VALUE"
             yield Token(type_=token_type, value=key, line=line, column=column)
             if key in ("input", "output") and indent in self.indents[key]:
-                yield Token(type_="OBJECT", value=doc, line=line, column=column)
+                yield Token(type_="OBJECT", value=value, line=line, column=column)
             elif isinstance(value, CommentedMap):
-                yield from self.lex(doc=value, line=line, column=column, indent=indent + 1)
-            else:
-                yield Token(type_="VALUE", value=key, line=line, column=column)
+                yield from self.lex(doc=value, indent=indent + 2)
+            elif value:
+                yield Token(type_="VALUE", value=value, line=line, column=column)
 
 
 class PytafParser(Lark):
@@ -67,7 +67,6 @@ class PytafParser(Lark):
             grammar=self.grammar,
             parser="lalr",
             lexer=PytafLexer,
-            # propagate_positions=True,
             **kwargs
         )
 

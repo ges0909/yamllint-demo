@@ -1,5 +1,5 @@
 import pytest
-from lark import UnexpectedInput
+from lark import UnexpectedToken
 
 from parse.pytaf_parser import PytafParser
 
@@ -17,6 +17,7 @@ def test_grammar(parser):
         wait:
             input:
                 duration: 5
+    after:
     steps:
         test step id:
             skip: reason
@@ -39,10 +40,10 @@ def test_grammar_error(parser):
         issue: test case id
         steps:
             test step id:
+            
             use: none
     """
         )
         print("\n" + tree.pretty())
-    except UnexpectedInput as error:
-        # msg = error.get_context("")
-        pass
+    except UnexpectedToken as error:
+        print(f"line {error.line} column {error.column}: syntax error: unexpected token '{error.token}'")
