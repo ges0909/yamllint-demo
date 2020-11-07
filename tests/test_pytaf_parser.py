@@ -1,3 +1,7 @@
+import glob
+from pathlib import Path
+
+import lark
 import pytest
 from lark import UnexpectedToken
 
@@ -47,3 +51,14 @@ def test_grammar_error(parser):
         print("\n" + tree.pretty())
     except UnexpectedToken as error:
         print(f"line {error.line} column {error.column}: syntax error: unexpected token '{error.token}'")
+
+
+def test_script_grammar():
+    parser = PytafParser()
+    for path in glob.glob("./scripts/*.yaml"):
+        with open(str(path), "r") as stream:
+            text = stream.read()
+            try:
+                parser.parse(text=text)
+            except lark.UnexpectedToken as error:
+                pytest.fail(msg=f"{Path(path).name} line {error.line} column {error.column}, unexpected token", pytrace=False)
