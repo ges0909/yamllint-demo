@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from yamllint import linter
 from yamllint.config import YamlLintConfig
 
@@ -32,3 +34,12 @@ def test_linter_custom_config():
 
 
 # yamllint --config-data "{extends: relaxed, rules: {new-lines: {type: dos}}}" yaml_script.yaml
+
+
+def test_pytaf_scripts():
+    # conf = YamlLintConfig(content="extends: default")
+    conf = YamlLintConfig(content="extends: relaxed")
+    pathlist = Path("scripts").glob("*.yaml")
+    for path in pathlist:
+        for problem in linter.run(input=str(path), conf=conf):
+            print(f"{problem.level:<7} {path.name:<88} {problem.line:>2}:{problem.column:<2} {problem.desc} (rule: {problem.rule})")
