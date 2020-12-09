@@ -17,3 +17,7 @@ rules:
     level: warning
 
   comments-indentation: disable
+
+  new-lines:
+    type: dos
+    level: warning

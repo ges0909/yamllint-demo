@@ -4,16 +4,26 @@ from pathlib import Path
 import lark
 import pytest
 from lark import UnexpectedToken
+from yamllint import linter
+from yamllint.config import YamlLintConfig
 
 from parse.pytaf_parser import PytafParser
 
 
 @pytest.fixture
 def parser():
-    return PytafParser(debug=True)
+    return PytafParser()
 
 
-def test_grammar(parser):
+def read_file(path_: Path) -> str:
+    with open(str(path_), "r") as stream:
+        return stream.read()
+
+
+# -- parser
+
+
+def test_pytaf_grammar(parser):
     tree = parser.parse(
         r"""
     issue: test case id
@@ -37,7 +47,7 @@ def test_grammar(parser):
     print("\n" + tree.pretty())
 
 
-def test_grammar_error(parser):
+def test_pytaf_grammar_with_error(parser):
     try:
         tree = parser.parse(
             r"""
@@ -53,12 +63,48 @@ def test_grammar_error(parser):
         print(f"line {error.line} column {error.column}: syntax error: unexpected token '{error.token}'")
 
 
-def test_script_grammar():
+def test_pytaf_grammar_all_scripts(parser):
+    for path in glob.glob("./scripts/*.yaml"):
+        try:
+            parser.parse(text=read_file(path))
+        # except ruamel.yaml.parser.ParserError as error:
+        #     pass
+        except lark.UnexpectedToken as error:
+            pytest.fail(
+                msg=f"{Path(path).name} line {error.line} column {error.column}, unexpected token", pytrace=False
+            )
+
+
+# -- linter
+
+
+def test_linter_pytaf_script():
+    # conf = YamlLintConfig(content="extends: relaxed")
+    conf = YamlLintConfig(file="yamllint_custom_config.yaml")
+    for path in glob.glob("./scripts/*.yaml"):
+        for problem in linter.run(input=path, conf=conf):
+            print(
+                f"{Path(path).name:<85} {problem.level:<7} line {problem.line} column {problem.column}: {problem.desc}"
+            )
+
+
+# -- linter + parser
+
+
+def test_pytaf_all_scripts():
+    conf = YamlLintConfig(file="yamllint_custom_config.yaml")
     parser = PytafParser()
     for path in glob.glob("./scripts/*.yaml"):
-        with open(str(path), "r") as stream:
-            text = stream.read()
-            try:
-                parser.parse(text=text)
-            except lark.UnexpectedToken as error:
-                pytest.fail(msg=f"{Path(path).name} line {error.line} column {error.column}, unexpected token", pytrace=False)
+        text = read_file(path)
+        try:
+            for problem in linter.run(input=text, conf=conf):
+                print(
+                    f"{Path(path).name:<85} {problem.level:<7} line {problem.line} column {problem.column}: {problem.desc}"
+                )
+            parser.parse(text=text)
+        # except ruamel.yaml.parser.ParserError as error:
+        #     pass
+        except lark.UnexpectedToken as error:
+            pytest.fail(
+                msg=f"{Path(path).name} line {error.line} column {error.column}, unexpected token", pytrace=False
+            )

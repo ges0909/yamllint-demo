@@ -1,7 +1,7 @@
 import json
 from typing import Iterator, Union
 
-from lark import Lark, UnexpectedInput
+from lark import Lark
 from lark.lexer import Lexer, Token
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
@@ -50,18 +50,19 @@ class PytafParser(Lark):
 
     issue: ISSUE VALUE
     markers: MARKERS VALUE*
-    before: BEFORE step*
-    after: AFTER step*
+    before: BEFORE _step*
+    after: AFTER _step*
     steps: STEPS step+
+    _step: ID use? input? output?
     step: ID skip_env? skip? markers? flaky? parameterize? before? after? use? input? output?
     skip_env: SKIP_ENV VALUE
     skip: SKIP VALUE*
     flaky: FLAKY VALUE
     parameterize: (PARAMETERIZE | FOREACH) OBJECT
     use: USE VALUE
-    input: INPUT parameter+
-    output: OUTPUT parameter+
-    parameter: OBJECT
+    input: INPUT param+
+    output: OUTPUT param+
+    param: OBJECT
     
     %declare ID VALUE OBJECT ISSUE MARKERS PARAMETERIZE FOREACH BEFORE AFTER STEPS SKIP_ENV SKIP FLAKY USE INPUT OUTPUT
     """
