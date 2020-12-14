@@ -7,7 +7,7 @@ from lark import UnexpectedToken
 from yamllint import linter
 from yamllint.config import YamlLintConfig
 
-from parse.pytaf_parser import PytafParser
+from parse.pytaf_parser import PytafParser, PytafParserError
 
 
 @pytest.fixture
@@ -108,3 +108,19 @@ def test_pytaf_all_scripts():
             pytest.fail(
                 msg=f"{Path(path).name} line {error.line} column {error.column}, unexpected token", pytrace=False
             )
+
+
+# -- parse all scripts
+
+
+def test_pytaf_parse_all_scripts():
+    errors = []
+    parser = PytafParser()
+    for path in glob.glob("scripts/*.yaml"):
+        try:
+            _, _ = parser.parse(path=path)
+        except PytafParserError as error:
+            errors.append(f"{error.path}, line {error.line} column {error.column}, {error.text}")
+    print()
+    for error in errors:
+        print(error)

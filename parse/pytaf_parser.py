@@ -1,10 +1,22 @@
 import json
-from typing import Iterator, Union
+from pathlib import Path
+from typing import Iterator, Union, Dict, Any, Tuple
 
-from lark import Lark
+from lark import Lark, Tree
+from lark.exceptions import UnexpectedToken
 from lark.lexer import Lexer, Token
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
+from ruamel.yaml.parser import ParserError
+from ruamel.yaml.scanner import ScannerError
+
+
+class PytafParserError(Exception):
+    def __init__(self, path: str, line: int, column: int, text: str):
+        self.path = path
+        self.line = line
+        self.column = column
+        self.text = text
 
 
 class PytafLexer(Lexer):
@@ -21,6 +33,7 @@ class PytafLexer(Lexer):
         "skip": (4,),
         "skip_env": (4,),
         "flaky": (4,),
+        "scope": (4, 8),
         "use": (4, 8),
         "input": (4, 8),
         "output": (4, 8),
@@ -53,18 +66,19 @@ class PytafParser(Lark):
     before: BEFORE _step*
     after: AFTER _step*
     steps: STEPS step+
-    _step: ID use? input? output?
+    _step: ID scope? use? input? output?
     step: ID skip_env? skip? markers? flaky? parameterize? before? after? use? input? output?
     skip_env: SKIP_ENV VALUE
     skip: SKIP VALUE*
     flaky: FLAKY VALUE
     parameterize: (PARAMETERIZE | FOREACH) OBJECT
+    scope: SCOPE VALUE
     use: USE VALUE
     input: INPUT param+
     output: OUTPUT param+
     param: OBJECT
     
-    %declare ID VALUE OBJECT ISSUE MARKERS PARAMETERIZE FOREACH BEFORE AFTER STEPS SKIP_ENV SKIP FLAKY USE INPUT OUTPUT
+    %declare ID VALUE OBJECT ISSUE MARKERS PARAMETERIZE FOREACH BEFORE AFTER STEPS SKIP_ENV SKIP FLAKY SCOPE USE INPUT OUTPUT
     """
 
     def __init__(self, **kwargs):
@@ -75,7 +89,24 @@ class PytafParser(Lark):
             **kwargs,
         )
 
-    def parse(self, text: str, **kwargs):
+    def parse(self, path: str, **kwargs) -> Tuple[Dict[str, Any], Tree]:
         yaml = YAML()
-        text = yaml.load(stream=text)
-        return super().parse(text=text, **kwargs)
+        try:
+            with open(path, "r") as stream:
+                instance = yaml.load(stream=stream)  # yaml parser
+                tree = super().parse(text=instance, **kwargs)  # pytaf parser
+                return instance, tree
+        except (ScannerError, ParserError) as error:
+            raise PytafParserError(
+                path=Path(path).name,  # error.problem_mark.name,
+                line=error.problem_mark.line,
+                column=error.problem_mark.column,
+                text=f"yaml error, {error.context} {error.problem}",
+            ) from None
+        except UnexpectedToken as error:
+            raise PytafParserError(
+                path=Path(path).name,
+                line=error.line,
+                column=error.column,
+                text=f"parser error, unexpected token '{error.token.value}' (token type {error.token.type})",
+            ) from None
