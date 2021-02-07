@@ -116,9 +116,10 @@ def test_pytaf_all_scripts():
 def test_pytaf_parse_all_scripts():
     errors = []
     parser = PytafParser()
-    for path in glob.glob("scripts/*.yaml"):
+    # lint_conf = YamlLintConfig(content="extends: relaxed")
+    for path in Path("scripts").glob("*.yaml"):
         try:
-            _, _ = parser.parse(path=path)
+            _ = parser.parse(path=path)
         except PytafParserError as error:
             errors.append(f"{error.path}, line {error.line} column {error.column}, {error.text}")
     print()

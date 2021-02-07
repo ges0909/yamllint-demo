@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
-from typing import Iterator, Union, Dict, Any, Tuple
+from typing import Iterator, Union, Dict, Any
 
-from lark import Lark, Tree
+from lark import Lark
 from lark.exceptions import UnexpectedToken
 from lark.lexer import Lexer, Token
 from ruamel.yaml import YAML
@@ -55,7 +55,7 @@ class PytafLexer(Lexer):
                 yield Token(type_="VALUE", value=value, line=line, column=column)
 
 
-class PytafParser(Lark):
+class PytafParser:
     """parse pytaf script"""
 
     grammar = r"""
@@ -81,31 +81,30 @@ class PytafParser(Lark):
     %declare ID VALUE OBJECT ISSUE MARKERS PARAMETERIZE FOREACH BEFORE AFTER STEPS SKIP_ENV SKIP FLAKY SCOPE USE INPUT OUTPUT
     """
 
-    def __init__(self, **kwargs):
-        super(PytafParser, self).__init__(
+    def __init__(self):
+        self.parser = Lark(
             grammar=self.grammar,
             parser="lalr",
             lexer=PytafLexer,
-            **kwargs,
         )
 
-    def parse(self, path: str, **kwargs) -> Tuple[Dict[str, Any], Tree]:
+    def parse(self, path: Path) -> Dict[str, Any]:
         yaml = YAML()
         try:
-            with open(path, "r") as stream:
-                instance = yaml.load(stream=stream)  # yaml parser
-                tree = super().parse(text=instance, **kwargs)  # pytaf parser
-                return instance, tree
+            with open(str(path), "r") as stream:
+                doc: Dict[str, Any] = yaml.load(stream=stream)
+                _ = self.parser.parse(text=doc)
+                return doc
         except (ScannerError, ParserError) as error:
             raise PytafParserError(
-                path=Path(path).name,  # error.problem_mark.name,
+                path=path.name,  # error.problem_mark.name,
                 line=error.problem_mark.line,
                 column=error.problem_mark.column,
                 text=f"yaml error, {error.context} {error.problem}",
             ) from None
         except UnexpectedToken as error:
             raise PytafParserError(
-                path=Path(path).name,
+                path=path.name,
                 line=error.line,
                 column=error.column,
                 text=f"parser error, unexpected token '{error.token.value}' (token type {error.token.type})",
