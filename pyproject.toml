@@ -8,7 +8,7 @@ authors = ["ges <gerrit.schrader@gmail.com>"]
 python = "^3.9"
 yamllint = "^1.25.0"
 "ruamel.yaml" = "^0.16.12"
-lark-parser = "^0.10.1"
+lark-parser = "^0.11.1"
 schema = "^0.7.3"
 
 [tool.poetry.dev-dependencies]
