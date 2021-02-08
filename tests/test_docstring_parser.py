@@ -1,11 +1,11 @@
 import pytest
 
+from parse.docstring_parser import DocstringParser
+
 
 @pytest.fixture
 def parser():
-    from parse.docstring_parser import FunctionDocstringParser
-
-    return FunctionDocstringParser()
+    return DocstringParser()
 
 
 def test_parse_google_style_function_docstring(parser):
@@ -24,12 +24,20 @@ def test_parse_google_style_function_docstring(parser):
         Alias:
             what ever you want to call
         """
-    tree, error = parser.parse(text=sample)
+    docstring, error = parser.parse(text=sample)
 
-    print("\n" + tree.pretty())
-
-    assert tree is not None
+    assert docstring is not None
     assert error is None
 
-    alias_tokens = [tree_.children for tree_ in tree.iter_subtrees() if tree_.data == "alias"]
-    assert alias_tokens[0][0].value == "what ever you want to call"
+    assert (
+        docstring.description == "Applies a query to the output of the test step in execution and returns the result."
+    )
+    assert docstring.args == [
+        "param1 (str): The [JMESpath](https://jmespath.org) query.",
+        "param2 (str): An other param",
+    ]
+    assert docstring.returns == "The search result."
+    assert docstring.yields == ""
+    assert docstring.raises == "An assertion exception if the query returns no result."
+    assert docstring.alias == "what ever you want to call"
+    assert docstring.examples == ""
