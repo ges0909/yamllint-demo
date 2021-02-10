@@ -5,7 +5,7 @@ from lark.exceptions import UnexpectedCharacters, GrammarError
 
 
 class Docstring(NamedTuple):
-    description: str
+    desc: str
     args: list
     returns: str
     yields: str
@@ -16,79 +16,84 @@ class Docstring(NamedTuple):
 
 def _string(tree: Tree, key: str) -> str:
     tokens = [token for tree_ in tree.iter_subtrees() if tree_.data == key for token in tree_.children]
-    return " ".join([getattr(token, "value", "") for token in tokens])
+    return " ".join([token.value for token in tokens if token.type == "WORD"])
 
 
-def _list(trees: list[Tree]) -> list[str]:
-    results = []
+def _arg_list(trees: list[Tree]) -> list[Tuple[str, str, str]]:
+    args = []
     for tree in trees:
-        tokens = [token for token in tree.children]
-        results.append(" ".join([getattr(token, "value", "") for token in tokens]))
-    return results
+        args.append(
+            (
+                " ".join([token.value for token in tree.children if token.type == "ID"]),
+                " ".join([token.value for token in tree.children if token.type == "TYPE"]),
+                " ".join([token.value for token in tree.children if token.type == "WORD"]),
+            )
+        )
+    return args
 
 
 class DocstringParser:
     """parse google style docstrings of module level python functions"""
 
     grammar = r"""
-    ?start: description args? (returns | yields)? raises? alias? examples?
+    ?start:         desc args? (returns | yields)? raises? alias? examples?
 
-    description: WORD+
-    args: _ARGS ":" params
-    returns: _RETURNS ":" WORD+
-    yields: _YIELDS ":" WORD+
-    raises: _RAISES ":" WORD+
-    alias: _ALIAS ":" WORD+
-    examples: _EXAMPLES ":" WORD+
+    desc:           WORD+
+    args:           _ARGS COLON params
+    returns:        _RETURNS COLON WORD+
+    yields:         _YIELDS COLON WORD+
+    raises:         _RAISES COLON WORD+
+    alias:          _ALIAS COLON WORD+
+    examples:       _EXAMPLES COLON WORD+
     
-    params: param+
-    param: ID ":" WORD+
-         | ID "(" TYPE ")" ":" WORD+
+    params:         param+
+    param:          ID COLON WORD+
+                  | ID BRACKET_OPEN TYPE BRACKET_CLOSE COLON WORD+
     
-    _ARGS: "Args"
-    _RETURNS: "Returns"
-    _YIELDS: "Yields"
-    _RAISES: "Raises"
-    _ALIAS: "Alias"
-    _EXAMPLES: "Examples"
+    _ARGS:          "Args"
+    _RETURNS:       "Returns"
+    _YIELDS:        "Yields"
+    _RAISES:        "Raises"
+    _ALIAS:         "Alias"
+    _EXAMPLES:      "Examples"
     
-    ID: /[a-zA-Z][a-zA-Z0-9_]*/
-    TYPE: /[a-zA-Z][a-zA-Z0-9_]*/
-    WORD: /[a-zA-Z0-9.]+/
+    ID:             /[a-zA-Z][a-zA-Z0-9_]*/
+    TYPE:           /[a-zA-Z][a-zA-Z0-9_]*/
+    COLON:          ":"
+    BRACKET_OPEN:   "("
+    BRACKET_CLOSE:  ")"
+    WORD:           /[a-zA-Z0-9.]+/
  
-    WS: /\s+/
+    WS:             /\s+/
     
     %ignore WS
     """
 
     @staticmethod
     def parse(text: str, **kwargs) -> Tuple[Optional[Docstring], Optional[str]]:
-        # tokens = []
         try:
             parser = Lark(
-                # lexer="standard",
-                # lexer="contextual",
                 grammar=DocstringParser.grammar,
                 parser="earley",  # supports rule priority
                 # parser="lalr",  # supports terminal priority
-                # lexer_callbacks={"TEXT": tokens.append},
                 **kwargs,
             )
             tree = parser.parse(text=text, **kwargs)
             # print("\n" + tree.pretty())
         except (GrammarError, UnexpectedCharacters, UnexpectedToken) as error:
             return None, ", ".join(error.args)
-        params = [
+        args = [
             param_tree
             for args_tree in tree.iter_subtrees()
             if args_tree.data == "args"
-            for params_tree in args_tree.children
+            for params_tree in args_tree.iter_subtrees()
             if params_tree.data == "params"
-            for param_tree in params_tree.children
+            for param_tree in params_tree.iter_subtrees()
+            if param_tree.data == "param"
         ]
         docstring = Docstring(
-            description=_string(tree, "description"),
-            args=_list(params),
+            desc=_string(tree, "desc"),
+            args=_arg_list(args),
             returns=_string(tree, "returns"),
             yields=_string(tree, "yields"),
             raises=_string(tree, "raises"),

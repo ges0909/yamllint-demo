@@ -7,6 +7,7 @@ from parse.docstring_parser import DocstringParser
 def parser():
     return DocstringParser()
 
+
 # param1: The [JMESpath](https://jmespath.org) query.
 
 
@@ -31,13 +32,11 @@ def test_parse_google_style_function_docstring(parser):
     assert error is None, error
     assert docstring is not None
 
-    assert (
-        docstring.description == "Applies a query to the output of the test step in execution and returns the result."
-    )
-    # assert docstring.args == [
-    #     "param1: The [JMESpath](https://jmespath.org) query.",
-    #     "param2 (str): An other param",
-    # ]
+    assert docstring.desc == "Applies a query to the output of the test step in execution and returns the result."
+    assert docstring.args == [
+        ("param1", "", "The JMESpath query."),
+        ("param2", "str", "An other param."),
+    ]
     assert docstring.returns == "The search result."
     assert docstring.yields == ""
     assert docstring.raises == "An assertion exception if the query returns no result."
