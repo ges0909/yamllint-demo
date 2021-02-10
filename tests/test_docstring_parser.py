@@ -24,13 +24,13 @@ def test_parse_google_style_function_docstring(parser):
         Alias:
             what ever you want to call
         """
-    docstring, error = parser.parse(text=sample)
+    docstring, error = DocstringParser.parse(text=sample)
 
+    assert error is None, error
     assert docstring is not None
-    assert error is None
 
     assert (
-        docstring.description == "Applies a query to the output of the test step in execution and returns the result."
+            docstring.description == "Applies a query to the output of the test step in execution and returns the result."
     )
     assert docstring.args == [
         "param1 (str): The [JMESpath](https://jmespath.org) query.",
