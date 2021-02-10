@@ -32,7 +32,7 @@ def test_parse_google_style_function_docstring(parser):
     assert error is None, error
     assert docstring is not None
 
-    assert docstring.desc == "Applies a query to the output of the test step in execution and returns the result."
+    assert docstring.summary == "Applies a query to the output of the test step in execution and returns the result."
     assert docstring.args == [
         ("param1", "", "The JMESpath query."),
         ("param2", "str", "An other param."),

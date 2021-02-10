@@ -5,7 +5,7 @@ from lark.exceptions import UnexpectedCharacters, GrammarError
 
 
 class Docstring(NamedTuple):
-    desc: str
+    summary: str
     args: list
     returns: str
     yields: str
@@ -36,9 +36,9 @@ class DocstringParser:
     """parse google style docstrings of module level python functions"""
 
     grammar = r"""
-    ?start:         desc args? (returns | yields)? raises? alias? examples?
+    ?start:         summary args? (returns | yields)? raises? alias? examples?
 
-    desc:           WORD+
+    summary:        WORD+
     args:           _ARGS COLON params
     returns:        _RETURNS COLON WORD+
     yields:         _YIELDS COLON WORD+
@@ -92,7 +92,7 @@ class DocstringParser:
             if param_tree.data == "param"
         ]
         docstring = Docstring(
-            desc=_string(tree, "desc"),
+            summary=_string(tree, "summary"),
             args=_arg_list(args),
             returns=_string(tree, "returns"),
             yields=_string(tree, "yields"),
