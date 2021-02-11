@@ -12,33 +12,54 @@ def parser():
 
 
 def test_parse_google_style_function_docstring(parser):
-    sample = r"""Applies a query to the output of the test step in execution and returns the result.
+    sample = r"""Summary line.
 
-        Args:
-            param1: The JMESpath query.
-            param2 (str): An other param.
+        Extended description of function.
+        
+    Args:
+        arg1: Description of arg1
+        arg2 (str): Description of arg2
 
-        Returns:
-            The search result.
+    Returns:
+        bool: Description of return value
 
-        Raises:
-            An assertion exception if the query returns no result.
-            
-        Alias:
-            what ever you want to call
+    Raises:
+        AttributeError: The ``Raises`` section is a list of all exceptions
+            that are relevant to the interface.
+        ValueError: If `arg2` is equal to `arg1`.
+        
+    Alias:
+        what ever you want to call
+        
+    Examples:
+        Examples should be written in doctest format, and should illustrate how
+        to use the function.
+
+        >>> a=1
+        >>> b=2
+        >>> func(a,b)
+        True
+
         """
     docstring, error = DocstringParser.parse(text=sample)
 
     assert error is None, error
     assert docstring is not None
 
-    assert docstring.summary == "Applies a query to the output of the test step in execution and returns the result."
+    assert docstring.summary == "Summary line."
+    assert docstring.description == "Extended description of function."
     assert docstring.args == [
-        ("param1", "", "The JMESpath query."),
-        ("param2", "str", "An other param."),
+        ("arg1", "", "Description of arg1"),
+        ("arg2", "str", "Description of arg2"),
     ]
-    assert docstring.returns == "The search result."
+    assert docstring.returns == ("bool", "Description of return value")
     assert docstring.yields == ""
-    assert docstring.raises == "An assertion exception if the query returns no result."
+    assert docstring.raises == [
+        ("AttributeError", "The ``Raises`` section is a list of all exceptions that are relevant to the interface."),
+        ("ValueError", "If `arg2` is equal to `arg1`."),
+    ]
     assert docstring.alias == "what ever you want to call"
-    assert docstring.examples == ""
+    assert (
+        docstring.examples
+        == "Examples should be written in doctest format, and should illustrate how to use the function. >>> a=1 >>> b=2 >>> func(a,b) True"
+    )

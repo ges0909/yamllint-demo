@@ -1,54 +1,101 @@
-from typing import Tuple, Optional, NamedTuple
+from collections import ChainMap
+from dataclasses import dataclass, field
+from typing import Tuple, Optional
 
-from lark import Lark, UnexpectedToken, Tree
+from lark import Lark, UnexpectedToken, Transformer
 from lark.exceptions import UnexpectedCharacters, GrammarError
 
 
-class Docstring(NamedTuple):
-    summary: str
-    args: list
-    returns: str
-    yields: str
-    raises: str
-    alias: str
-    examples: str
+@dataclass
+class Docstring:
+    summary: str = ""
+    description: str = ""
+    args: list[str] = field(default_factory=[])
+    returns: str = ""
+    yields: str = ""
+    raises: list[str] = field(default_factory=[])
+    alias: str = ""
+    examples: str = ""
 
 
-def _string(tree: Tree, key: str) -> str:
-    tokens = [token for tree_ in tree.iter_subtrees() if tree_.data == key for token in tree_.children]
-    return " ".join([token.value for token in tokens if token.type == "WORD"])
+class DocstringTransformer(Transformer):
+    @staticmethod
+    def to_string(tokens, type_: str):
+        return " ".join([token.value for token in tokens if token.type == type_])
 
+    @staticmethod
+    def start(children):
+        return dict(ChainMap(*children[::-1]))
 
-def _arg_list(trees: list[Tree]) -> list[Tuple[str, str, str]]:
-    args = []
-    for tree in trees:
-        args.append(
-            (
-                " ".join([token.value for token in tree.children if token.type == "ID"]),
-                " ".join([token.value for token in tree.children if token.type == "TYPE"]),
-                " ".join([token.value for token in tree.children if token.type == "WORD"]),
-            )
+    def summary(self, tokens):
+        return {"summary": self.to_string(tokens, type_="WORD")}
+
+    def description(self, tokens):
+        return {"description": self.to_string(tokens, type_="WORD")}
+
+    @staticmethod
+    def args(children):
+        return {"args": [child for child in children if isinstance(child, tuple)]}
+
+    def arg(self, tokens):
+        return (
+            self.to_string(tokens, type_="NAME"),
+            self.to_string(tokens, type_="TYPE"),
+            self.to_string(tokens, type_="WORD"),
         )
-    return args
+
+    def returns(self, tokens):
+        return {
+            "returns": (
+                self.to_string(tokens, type_="TYPE"),
+                self.to_string(tokens, type_="WORD"),
+            )
+        }
+
+    def yields(self, tokens):
+        return {
+            "yields": {
+                "type": self.to_string(tokens, type_="TYPE"),
+                "word": self.to_string(tokens, type_="WORD"),
+            }
+        }
+
+    @staticmethod
+    def raises(children):
+        return {"raises": [child for child in children if isinstance(child, tuple)]}
+
+    def error(self, tokens):
+        return (
+            self.to_string(tokens, type_="TYPE"),
+            self.to_string(tokens, type_="WORD"),
+        )
+
+    def alias(self, tokens):
+        return {"alias": self.to_string(tokens, type_="WORD")}
+
+    def examples(self, tokens):
+        return {"examples": self.to_string(tokens, type_="WORD")}
 
 
 class DocstringParser:
     """parse google style docstrings of module level python functions"""
 
     grammar = r"""
-    ?start:         summary args? (returns | yields)? raises? alias? examples?
+    ?start:         summary description? args? (returns | yields)? raises? alias? examples?
 
-    summary:        WORD+
-    args:           _ARGS COLON params
-    returns:        _RETURNS COLON WORD+
-    yields:         _YIELDS COLON WORD+
-    raises:         _RAISES COLON WORD+
+    summary:        WORD+ "\n"
+    description:    WORD+
+    args:           _ARGS COLON arg+
+    returns:        _RETURNS COLON TYPE COLON WORD+
+    yields:         _YIELDS COLON TYPE COLON WORD+
+    raises:         _RAISES COLON error+
     alias:          _ALIAS COLON WORD+
     examples:       _EXAMPLES COLON WORD+
     
-    params:         param+
-    param:          ID COLON WORD+
-                  | ID BRACKET_OPEN TYPE BRACKET_CLOSE COLON WORD+
+    arg:            NAME COLON WORD+
+                  | NAME BRACKET_OPEN TYPE BRACKET_CLOSE COLON WORD+
+                  
+    error:          TYPE COLON WORD+
     
     _ARGS:          "Args"
     _RETURNS:       "Returns"
@@ -57,16 +104,16 @@ class DocstringParser:
     _ALIAS:         "Alias"
     _EXAMPLES:      "Examples"
     
-    ID:             /[a-zA-Z][a-zA-Z0-9_]*/
+    NAME:           /[a-zA-Z][a-zA-Z0-9_]*/
     TYPE:           /[a-zA-Z][a-zA-Z0-9_]*/
     COLON:          ":"
     BRACKET_OPEN:   "("
     BRACKET_CLOSE:  ")"
-    WORD:           /[a-zA-Z0-9.]+/
+    WORD:           /[a-zA-Z0-9.`,>=()]+/
  
     WS:             /\s+/
     
-    %ignore WS
+    %ignore         WS
     """
 
     @staticmethod
@@ -80,24 +127,7 @@ class DocstringParser:
             )
             tree = parser.parse(text=text, **kwargs)
             # print("\n" + tree.pretty())
+            transformed = DocstringTransformer().transform(tree)
         except (GrammarError, UnexpectedCharacters, UnexpectedToken) as error:
             return None, ", ".join(error.args)
-        args = [
-            param_tree
-            for args_tree in tree.iter_subtrees()
-            if args_tree.data == "args"
-            for params_tree in args_tree.iter_subtrees()
-            if params_tree.data == "params"
-            for param_tree in params_tree.iter_subtrees()
-            if param_tree.data == "param"
-        ]
-        docstring = Docstring(
-            summary=_string(tree, "summary"),
-            args=_arg_list(args),
-            returns=_string(tree, "returns"),
-            yields=_string(tree, "yields"),
-            raises=_string(tree, "raises"),
-            alias=_string(tree, "alias"),
-            examples=_string(tree, "examples"),
-        )
-        return docstring, None
+        return Docstring(**transformed), None
