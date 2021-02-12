@@ -1,8 +1,8 @@
 from collections import ChainMap
 from dataclasses import dataclass, field
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 
-from lark import Lark, UnexpectedToken, Transformer
+from lark import Lark, UnexpectedToken, Transformer, Tree
 from lark.exceptions import UnexpectedCharacters, GrammarError
 
 
@@ -20,61 +20,63 @@ class Docstring:
 
 class DocstringTransformer(Transformer):
     @staticmethod
-    def to_string(tokens, type_: str):
+    def words_to_str(tokens, type_: str) -> str:
         return " ".join([token.value for token in tokens if token.type == type_])
 
     @staticmethod
-    def start(children):
-        return dict(ChainMap(*children[::-1]))
+    def start(
+        children: list,
+    ) -> dict[str, Union[str, tuple[str, str], tuple[str, str, str]]]:
+        return dict(ChainMap(*children[::-1]))  # reduce list of dicts to single dict
 
-    def summary(self, tokens):
-        return {"summary": self.to_string(tokens, type_="WORD")}
+    def summary(self, tokens: list) -> dict[str, str]:
+        return {"summary": self.words_to_str(tokens, type_="WORD")}
 
-    def description(self, tokens):
-        return {"description": self.to_string(tokens, type_="WORD")}
+    def description(self, tokens: list) -> dict[str, str]:
+        return {"description": self.words_to_str(tokens, type_="WORD")}
 
     @staticmethod
-    def args(children):
+    def args(children: list) -> dict[str, list[tuple[str, str, str]]]:
         return {"args": [child for child in children if isinstance(child, tuple)]}
 
-    def arg(self, tokens):
+    def arg(self, tokens: list) -> tuple[str, str, str]:
         return (
-            self.to_string(tokens, type_="NAME"),
-            self.to_string(tokens, type_="TYPE"),
-            self.to_string(tokens, type_="WORD"),
+            self.words_to_str(tokens, type_="NAME"),
+            self.words_to_str(tokens, type_="TYPE"),
+            self.words_to_str(tokens, type_="WORD"),
         )
 
-    def returns(self, tokens):
+    def returns(self, tokens: list) -> dict[str, tuple[str, str]]:
         return {
             "returns": (
-                self.to_string(tokens, type_="TYPE"),
-                self.to_string(tokens, type_="WORD"),
+                self.words_to_str(tokens, type_="TYPE"),
+                self.words_to_str(tokens, type_="WORD"),
             )
         }
 
-    def yields(self, tokens):
+    def yields(self, tokens: list) -> dict[str, tuple[str, str]]:
         return {
-            "yields": {
-                "type": self.to_string(tokens, type_="TYPE"),
-                "word": self.to_string(tokens, type_="WORD"),
-            }
+            "yields": (
+                self.words_to_str(tokens, type_="TYPE"),
+                self.words_to_str(tokens, type_="WORD"),
+            )
         }
 
     @staticmethod
-    def raises(children):
+    def raises(children: list) -> dict[str, list[tuple[str, str]]]:
         return {"raises": [child for child in children if isinstance(child, tuple)]}
 
-    def error(self, tokens):
+    def error(self, tokens: list) -> tuple[str, str]:
         return (
-            self.to_string(tokens, type_="TYPE"),
-            self.to_string(tokens, type_="WORD"),
+            self.words_to_str(tokens, type_="TYPE"),
+            self.words_to_str(tokens, type_="WORD"),
         )
 
-    def alias(self, tokens):
-        return {"alias": self.to_string(tokens, type_="WORD")}
+    def alias(self, tokens: list) -> dict[str, str]:
+        return {"alias": self.words_to_str(tokens, type_="WORD")}
 
-    def examples(self, tokens):
-        return {"examples": self.to_string(tokens, type_="WORD")}
+    def examples(self, tokens: list) -> dict[str, str]:
+        return {"examples": self.words_to_str(tokens, type_="WORD")}
 
 
 class DocstringParser:
@@ -128,6 +130,6 @@ class DocstringParser:
             tree = parser.parse(text=text, **kwargs)
             # print("\n" + tree.pretty())
             transformed = DocstringTransformer().transform(tree)
+            return Docstring(**transformed), None
         except (GrammarError, UnexpectedCharacters, UnexpectedToken) as error:
             return None, ", ".join(error.args)
-        return Docstring(**transformed), None
