@@ -1,6 +1,6 @@
 import pytest
 
-from parse.docstring_parser import DocstringParser
+from parse.docstring import DocstringParser
 
 
 @pytest.fixture
