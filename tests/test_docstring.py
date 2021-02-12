@@ -41,7 +41,9 @@ def test_parse_google_style_function_docstring(parser):
         True
 
         """
-    docstring, error = DocstringParser.parse(text=sample)
+
+    parser = DocstringParser()
+    docstring, error = parser.parse(text=sample)
 
     assert error is None, error
     assert docstring is not None
@@ -61,5 +63,6 @@ def test_parse_google_style_function_docstring(parser):
     assert docstring.alias == "what ever you want to call"
     assert (
         docstring.examples
-        == "Examples should be written in doctest format, and should illustrate how to use the function. >>> a=1 >>> b=2 >>> func(a,b) True"
+        == "Examples should be written in doctest format, and should illustrate how to use the function."
+        " >>> a=1 >>> b=2 >>> func(a,b) True"
     )

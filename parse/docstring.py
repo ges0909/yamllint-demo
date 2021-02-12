@@ -79,7 +79,7 @@ class DocstringTransformer(Transformer):
         return {"examples": self.words_to_str(tokens, type_="WORD")}
 
 
-class DocstringParser:
+class DocstringParser(Lark):
     """parse google style docstrings of module level python functions"""
 
     grammar = r"""
@@ -118,16 +118,17 @@ class DocstringParser:
     %ignore         WS
     """
 
-    @staticmethod
-    def parse(text: str, **kwargs) -> Tuple[Optional[Docstring], Optional[str]]:
+    def __init__(self, **kwargs):
+        super().__init__(
+            grammar=self.grammar,
+            parser="earley",  # supports rule priority
+            # parser="lalr",  # supports terminal priority
+            **kwargs,
+        )
+
+    def parse(self, text: str, **kwargs) -> Tuple[Optional[Docstring], Optional[str]]:
         try:
-            parser = Lark(
-                grammar=DocstringParser.grammar,
-                parser="earley",  # supports rule priority
-                # parser="lalr",  # supports terminal priority
-                **kwargs,
-            )
-            tree = parser.parse(text=text, **kwargs)
+            tree = super().parse(text=text, **kwargs)
             # print("\n" + tree.pretty())
             transformed = DocstringTransformer().transform(tree)
             return Docstring(**transformed), None
