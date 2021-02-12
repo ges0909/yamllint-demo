@@ -2,7 +2,7 @@ from collections import ChainMap
 from dataclasses import dataclass, field
 from typing import Tuple, Optional, Union
 
-from lark import Lark, UnexpectedToken, Transformer, Tree
+from lark import Lark, UnexpectedToken, Transformer
 from lark.exceptions import UnexpectedCharacters, GrammarError
 
 
@@ -111,7 +111,7 @@ class DocstringParser(Lark):
     COLON:          ":"
     BRACKET_OPEN:   "("
     BRACKET_CLOSE:  ")"
-    WORD:           /[a-zA-Z0-9.`,>=()]+/
+    WORD:           /[a-zA-Z0-9.`,>=()\[\]\/]+/
  
     WS:             /\s+/
     

@@ -19,6 +19,7 @@ def test_parse_google_style_function_docstring(parser):
     Args:
         arg1: Description of arg1
         arg2 (str): Description of arg2
+        arg3: The [JMESpath](https//jmespath.org) query.
 
     Returns:
         bool: Description of return value
@@ -53,6 +54,7 @@ def test_parse_google_style_function_docstring(parser):
     assert docstring.args == [
         ("arg1", "", "Description of arg1"),
         ("arg2", "str", "Description of arg2"),
+        ("arg3", "", "The [JMESpath](https//jmespath.org) query."),
     ]
     assert docstring.returns == ("bool", "Description of return value")
     assert docstring.yields == ""
